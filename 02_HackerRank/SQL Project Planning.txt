@@ -1,0 +1,45 @@
+DECLARE @proj INT = 0
+DECLARE @count INT = 1
+
+SELECT  *
+INTO    master
+FROM(
+     SELECT  *,
+             CASE
+                 WHEN DATEDIFF(day, ISNULL(LAG(End_Date) OVER (ORDER BY End_Date), End_Date), End_Date) = 1 THEN 'N' 
+                 WHEN DATEDIFF(day, ISNULL(LAG(End_Date) OVER (ORDER BY End_Date), End_Date), End_Date) > 1 THEN 'Y'
+                 WHEN DATEDIFF(day, ISNULL(LAG(End_Date) OVER (ORDER BY End_Date), End_Date), End_Date) = 0 THEN 'Y' 
+             END AS new_proj,
+             ROW_NUMBER() OVER (ORDER BY End_Date) as row,
+             0 AS proj_num
+     FROM    Projects
+    ) AS table1
+
+WHILE @count <= (SELECT COUNT(*) FROM master)
+BEGIN
+    IF (SELECT new_proj FROM master WHERE row=@count) = 'Y'
+        BEGIN
+            SET @proj = @proj +1
+            UPDATE master
+            SET proj_num = @proj
+            WHERE row = @count
+            SET @count = @count + 1
+        END
+    ELSE
+        BEGIN
+            UPDATE master
+            SET proj_num = @proj
+            WHERE row = @count
+            SET @count = @count + 1
+        END
+END
+
+SELECT start_date, end_date
+FROM(
+    SELECT  DISTINCT
+            MIN(Start_Date) OVER (PARTITION BY proj_num) start_date,
+            MAX(End_Date) OVER (PARTITION BY proj_num) end_date,
+            DATEDIFF(day, MIN(Start_Date) OVER (PARTITION BY proj_num), MAX(End_Date) OVER (PARTITION BY proj_num)) proj_days
+    FROM master
+    ) as result
+ORDER BY proj_days, start_date

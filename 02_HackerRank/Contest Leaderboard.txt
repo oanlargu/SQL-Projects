@@ -1,0 +1,11 @@
+SELECT hacker_id, name, SUM(max_scores)
+FROM(
+    SELECT  DISTINCT h.hacker_id, h.name, s.challenge_id,
+            MAX(score) OVER (PARTITION BY h.hacker_id, s.challenge_id) as max_scores
+    FROM    submissions s
+    LEFT    JOIN hackers h
+    ON      s.hacker_id = h.hacker_id
+    ) AS    table1
+GROUP BY    hacker_id, name
+HAVING      SUM(max_scores) <> 0
+ORDER BY    SUM(max_scores) DESC, hacker_id
